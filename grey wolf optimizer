@@ -1,0 +1,113 @@
+import numpy as np
+
+print("=" * 50)
+print("GREY WOLF OPTIMIZER - PORTFOLIO OPTIMIZATION")
+print("=" * 50)
+
+n_assets = int(input("\nEnter number of assets: "))
+
+expected_returns = []
+risks = []
+for i in range(n_assets):
+    ret = float(input(f"Enter expected return of asset {i+1}: "))
+    expected_returns.append(ret)
+    risk = float(input(f"Enter risk of asset {i+1}: "))
+    risks.append(risk)
+    print()
+
+expected_returns = np.array(expected_returns)
+risks = np.array(risks)
+
+print("\n" + "=" * 50)
+print("RUNNING GREY WOLF OPTIMIZER...")
+print("=" * 50)
+n_wolves = 5
+n_iterations = 5
+dim = n_assets
+
+def fitness_function(weights):
+    weights = weights / np.sum(weights)
+    portfolio_return = np.sum(weights * expected_returns)
+    portfolio_risk = np.sum(weights * risks)
+    fitness = -(portfolio_return - portfolio_risk)
+    return fitness
+
+wolves = np.random.random((n_wolves, dim))
+for i in range(n_wolves):
+    wolves[i] = wolves[i] / np.sum(wolves[i])
+
+fitness = np.array([fitness_function(wolf) for wolf in wolves])
+
+sorted_indices = np.argsort(fitness)
+alpha_pos = wolves[sorted_indices[0]].copy()
+alpha_score = fitness[sorted_indices[0]]
+beta_pos = wolves[sorted_indices[1]].copy()
+beta_score = fitness[sorted_indices[1]]
+delta_pos = wolves[sorted_indices[2]].copy()
+delta_score = fitness[sorted_indices[2]]
+
+for iteration in range(n_iterations):
+    a = 2 - iteration * (2 / n_iterations)
+    
+    for i in range(n_wolves):
+        for j in range(dim):
+            r1, r2 = np.random.random(2)
+            A1 = 2 * a * r1 - a
+            C1 = 2 * r2
+            D_alpha = abs(C1 * alpha_pos[j] - wolves[i, j])
+            X1 = alpha_pos[j] - A1 * D_alpha
+            
+            r1, r2 = np.random.random(2)
+            A2 = 2 * a * r1 - a
+            C2 = 2 * r2
+            D_beta = abs(C2 * beta_pos[j] - wolves[i, j])
+            X2 = beta_pos[j] - A2 * D_beta
+            
+            r1, r2 = np.random.random(2)
+            A3 = 2 * a * r1 - a
+            C3 = 2 * r2
+            D_delta = abs(C3 * delta_pos[j] - wolves[i, j])
+            X3 = delta_pos[j] - A3 * D_delta
+            
+            wolves[i, j] = (X1 + X2 + X3) / 3
+        
+        wolves[i] = np.abs(wolves[i])
+        wolves[i] = wolves[i] / np.sum(wolves[i])
+    
+    fitness = np.array([fitness_function(wolf) for wolf in wolves])
+    
+    sorted_indices = np.argsort(fitness)
+    if fitness[sorted_indices[0]] < alpha_score:
+        alpha_pos = wolves[sorted_indices[0]].copy()
+        alpha_score = fitness[sorted_indices[0]]
+    if fitness[sorted_indices[1]] < beta_score:
+        beta_pos = wolves[sorted_indices[1]].copy()
+        beta_score = fitness[sorted_indices[1]]
+    if fitness[sorted_indices[2]] < delta_score:
+        delta_pos = wolves[sorted_indices[2]].copy()
+        delta_score = fitness[sorted_indices[2]]
+    
+    print(f"Iteration {iteration+1}/{n_iterations} | Best Fitness: {alpha_score:.6f}")
+
+print("\n" + "=" * 50)
+print("OUTPUT")
+print("=" * 50)
+
+optimal_weights = alpha_pos / np.sum(alpha_pos)
+
+portfolio_return = np.sum(optimal_weights * expected_returns)
+portfolio_risk = np.sum(optimal_weights * risks)
+portfolio_score = alpha_score
+
+print("\nOptimal Investment Weights:")
+for i in range(n_assets):
+    print(f"Asset {i+1}: {optimal_weights[i]*100:.2f}%")
+
+print(f"\nPortfolio Score: {portfolio_score:.6f}")
+print(f"Expected Portfolio Return: {portfolio_return:.3f}")
+print(f"Expected Portfolio Risk: {portfolio_risk:.4f}")
+
+print(f"\nSuggested Best Investment: Asset {np.argmax(optimal_weights)+1} with the")
+print(f"                          highest allocation of {np.max(optimal_weights)*100:.2f}%")
+
+print("\n" + "=" * 50)
