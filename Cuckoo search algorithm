@@ -1,0 +1,126 @@
+import numpy as np
+import random
+
+def cuckoo_search_job_scheduling(n_jobs, n_machines, processing_times, n_nests=15, pa=0.25, max_iter=100):
+    """
+    Cuckoo Search Algorithm for Job Scheduling
+    
+    Args:
+        n_jobs: Number of jobs
+        n_machines: Number of machines
+        processing_times: List of processing times for each job
+        n_nests: Number of nests (population size)
+        pa: Probability of discovering alien eggs
+        max_iter: Maximum number of iterations
+    """
+    
+    # Initialize nests (random job assignments)
+    nests = []
+    for _ in range(n_nests):
+        nest = [random.randint(0, n_machines - 1) for _ in range(n_jobs)]
+        nests.append(nest)
+    
+    # Calculate fitness (makespan - lower is better)
+    def calculate_makespan(assignment):
+        machine_times = [0] * n_machines
+        for job_id, machine_id in enumerate(assignment):
+            machine_times[machine_id] += processing_times[job_id]
+        return max(machine_times)
+    
+    # Get best nest
+    def get_best_nest(nests):
+        fitness = [calculate_makespan(nest) for nest in nests]
+        best_idx = fitness.index(min(fitness))
+        return nests[best_idx], fitness[best_idx]
+    
+    # Levy flight
+    def levy_flight(Lambda=1.5):
+        from math import gamma, sin, pi
+        sigma = (gamma(1 + Lambda) * sin(pi * Lambda / 2) / 
+                (gamma((1 + Lambda) / 2) * Lambda * 2**((Lambda - 1) / 2)))**(1 / Lambda)
+        u = np.random.normal(0, sigma)
+        v = np.random.normal(0, 1)
+        step = u / abs(v)**(1 / Lambda)
+        return step
+    
+    # Main Cuckoo Search loop
+    best_nest, best_fitness = get_best_nest(nests)
+    
+    for iteration in range(max_iter):
+        # Generate new solution by Levy flight
+        for i in range(n_nests):
+            new_nest = nests[i].copy()
+            
+            # Levy flight random walk
+            step_size = levy_flight()
+            if abs(step_size) > 0.5:
+                # Change random job assignments
+                n_changes = random.randint(1, max(1, n_jobs // 3))
+                for _ in range(n_changes):
+                    job_idx = random.randint(0, n_jobs - 1)
+                    new_nest[job_idx] = random.randint(0, n_machines - 1)
+            
+            # Evaluate new solution
+            new_fitness = calculate_makespan(new_nest)
+            current_fitness = calculate_makespan(nests[i])
+            
+            # Replace if better
+            if new_fitness < current_fitness:
+                nests[i] = new_nest
+        
+        # Abandon worst nests and build new ones
+        fitness_values = [calculate_makespan(nest) for nest in nests]
+        sorted_indices = sorted(range(len(fitness_values)), key=lambda k: fitness_values[k], reverse=True)
+        
+        n_abandon = int(pa * n_nests)
+        for i in range(n_abandon):
+            worst_idx = sorted_indices[i]
+            # Create new random solution
+            nests[worst_idx] = [random.randint(0, n_machines - 1) for _ in range(n_jobs)]
+        
+        # Update best solution
+        current_best_nest, current_best_fitness = get_best_nest(nests)
+        if current_best_fitness < best_fitness:
+            best_nest = current_best_nest
+            best_fitness = current_best_fitness
+    
+    return best_nest, best_fitness
+
+
+# Get user input
+print("Job Scheduling using Cuckoo Search\n")
+
+# Input number of jobs
+n_jobs = int(input("Enter number of jobs: "))
+
+# Input number of machines
+n_machines = int(input("Enter number of machines: "))
+
+# Input processing times for each job
+print(f"Enter processing times for each job:")
+processing_times = list(map(int, input().split()))
+
+# Validate input
+if len(processing_times) != n_jobs:
+    print(f"Error: Expected {n_jobs} processing times")
+    exit(1)
+
+# Run Cuckoo Search Algorithm
+print("\nRunning Cuckoo Search Algorithm...\n")
+best_assignment, makespan = cuckoo_search_job_scheduling(
+    n_jobs, n_machines, processing_times
+)
+
+# Display output
+print("\n" + "="*50)
+print("Output")
+print("="*50)
+print("\nBest Job Assignment:\n")
+
+for job_id in range(n_jobs):
+    machine_id = best_assignment[job_id]
+    time = processing_times[job_id]
+    print(f"Job {job_id + 1} -> Machine {machine_id} (processing time = {time})")
+
+print(f"\nOptimal Makespan: {makespan}")
+print("="*50)
