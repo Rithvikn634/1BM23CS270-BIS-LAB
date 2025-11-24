@@ -1,0 +1,103 @@
+import numpy as np
+
+# Rastrigin function
+def rastrigin(x):
+    n = len(x)
+    return 10 * n + sum(xi**2 - 10 * np.cos(2 * np.pi * xi) for xi in x)
+
+# PSO Algorithm
+def pso(func, dimensions, num_particles, max_iter, x_min, x_max, w, c1, c2):
+    # Initialize particles
+    particles = np.random.uniform(x_min, x_max, (num_particles, dimensions))
+    velocities = np.random.uniform(-1, 1, (num_particles, dimensions))
+    
+    # Initialize personal best
+    personal_best_positions = particles.copy()
+    personal_best_fitness = np.array([func(p) for p in particles])
+    
+    # Initialize global best
+    global_best_idx = np.argmin(personal_best_fitness)
+    global_best_position = personal_best_positions[global_best_idx].copy()
+    global_best_fitness = personal_best_fitness[global_best_idx]
+    
+    # Optimization loop
+    for iteration in range(1, max_iter + 1):
+        for i in range(num_particles):
+            # Update velocity
+            r1 = np.random.random(dimensions)
+            r2 = np.random.random(dimensions)
+            
+            cognitive = c1 * r1 * (personal_best_positions[i] - particles[i])
+            social = c2 * r2 * (global_best_position - particles[i])
+            velocities[i] = w * velocities[i] + cognitive + social
+            
+            # Update position
+            particles[i] = particles[i] + velocities[i]
+            
+            # Clip to bounds
+            particles[i] = np.clip(particles[i], x_min, x_max)
+            
+            # Evaluate fitness
+            fitness = func(particles[i])
+            
+            # Update personal best
+            if fitness < personal_best_fitness[i]:
+                personal_best_fitness[i] = fitness
+                personal_best_positions[i] = particles[i].copy()
+            
+            # Update global best
+            if fitness < global_best_fitness:
+                global_best_fitness = fitness
+                global_best_position = particles[i].copy()
+        
+        # Print progress (matching your output format)
+        if iteration % (max_iter // 10) == 0 or iteration == 1:
+            print(f"Iteration {iteration}/{max_iter} - Best fitness: {global_best_fitness:.6f}")
+    
+    return global_best_position, global_best_fitness
+
+print("=" * 50)
+print("Complex VNS N Lemarnetic PSO")
+print("=" * 50)
+print("\nEnter Input Parameters:\n")
+
+# Get input parameters from user
+num_particles = int(input("Enter number of particles: "))
+dimensions = int(input("Enter dimensions: "))
+max_iter = int(input("Enter maximum iterations: "))
+x_min = float(input("Enter x_min: "))
+x_max = float(input("Enter x_max: "))
+w = float(input("Enter inertia weight (w): "))
+c1 = float(input("Enter cognitive parameter (c1): "))
+c2 = float(input("Enter social parameter (c2): "))
+
+print("\n" + "=" * 50)
+print("Input:")
+print(f"num_particles = {num_particles}")
+print(f"dimensions = {dimensions}")
+print(f"max_iter = {max_iter}")
+print(f"x_min = {x_min}")
+print(f"x_max = {x_max}")
+print(f"w = {w}")
+print(f"c1 = {c1}")
+print(f"c2 = {c2}")
+print("\n" + "=" * 50)
+print("Output:")
+print("=" * 50 + "\n")
+
+# Run PSO
+best_solution, best_fitness = pso(rastrigin, dimensions, num_particles, max_iter, 
+                                   x_min, x_max, w, c1, c2)
+
+print("\n" + "=" * 50)
+print("Optimal solution found:")
+print(f"Position: {best_solution}")
+print(f"Optimal function value: {best_fitness:.11f}")
+print("=" * 50)
+
+# Rastrigin function definition for reference
+print("\n" + "=" * 50)
+print("Rastrigin function:")
+print("f(x) = 10n + Σ[xi² - 10cos(2πxi)]")
+print("where i = 1 to n")
+print("=" * 50)
