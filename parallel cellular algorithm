@@ -1,0 +1,153 @@
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import copy
+
+def get_user_input():
+    print("=== Disaster Management and Resilience ===")
+    print("Optimizing resource allocation across city grid\n")
+    
+    rows = int(input("Enter number of rows in the grid: "))
+    cols = int(input("Enter number of columns in the grid: "))
+    max_iterations = int(input("Enter maximum number of iterations: "))
+    diffusion_coeff = float(input("Enter diffusion coefficient (lambda, 0-1): "))
+    mutation_prob = float(input("Enter mutation probability (0-1): "))
+    max_resources = int(input("Enter maximum resources per cell: "))
+    
+    return rows, cols, max_iterations, diffusion_coeff, mutation_prob, max_resources
+
+def initialize_grids(rows, cols, max_resources):
+    resource_grid = np.random.randint(0, max_resources + 1, (rows, cols))
+    demand_grid = np.random.randint(0, max_resources + 1, (rows, cols))
+    return resource_grid, demand_grid
+
+def compute_fitness(resource_grid, demand_grid):
+    diff = np.abs(resource_grid - demand_grid)
+    fitness = 1.0 / (1.0 + diff)
+    return fitness
+
+def diffusion_step(grid, i, j, diffusion_coeff):
+    rows, cols = grid.shape
+    neighbors = []
+    
+    if i > 0:
+        neighbors.append(grid[i-1, j])
+    if i < rows - 1:
+        neighbors.append(grid[i+1, j])
+    if j > 0:
+        neighbors.append(grid[i, j-1])
+    if j < cols - 1:
+        neighbors.append(grid[i, j+1])
+    
+    if neighbors:
+        avg_neighbor = np.mean(neighbors)
+        new_value = (1 - diffusion_coeff) * grid[i, j] + diffusion_coeff * avg_neighbor
+        return int(round(new_value))
+    return grid[i, j]
+
+def parallel_diffusion(grid, diffusion_coeff):
+    rows, cols = grid.shape
+    new_grid = np.copy(grid)
+    
+    def process_cell(pos):
+        i, j = pos
+        return (i, j, diffusion_step(grid, i, j, diffusion_coeff))
+    
+    positions = [(i, j) for i in range(rows) for j in range(cols)]
+    
+    with ThreadPoolExecutor() as executor:
+        results = executor.map(process_cell, positions)
+        
+    for i, j, value in results:
+        new_grid[i, j] = value
+    
+    return new_grid
+
+def apply_mutation(grid, mutation_prob, max_resources):
+    rows, cols = grid.shape
+    new_grid = np.copy(grid)
+    
+    for i in range(rows):
+        for j in range(cols):
+            if np.random.random() < mutation_prob:
+                mutation_type = np.random.choice([0, 1, 2])
+                if mutation_type == 0:
+                    new_grid[i, j] = min(max_resources, new_grid[i, j] + 1)
+                elif mutation_type == 1:
+                    new_grid[i, j] = max(0, new_grid[i, j] - 1)
+                else:
+                    new_grid[i, j] = np.random.randint(0, max_resources + 1)
+    
+    return new_grid
+
+def select_best_allocation(resource_grid, demand_grid, fitness):
+    rows, cols = resource_grid.shape
+    new_grid = np.copy(resource_grid)
+    
+    for i in range(rows):
+        for j in range(cols):
+            best_fitness = fitness[i, j]
+            best_value = resource_grid[i, j]
+            
+            neighbors = []
+            if i > 0:
+                neighbors.append((i-1, j))
+            if i < rows - 1:
+                neighbors.append((i+1, j))
+            if j > 0:
+                neighbors.append((i, j-1))
+            if j < cols - 1:
+                neighbors.append((i, j+1))
+            
+            for ni, nj in neighbors:
+                if fitness[ni, nj] > best_fitness:
+                    best_fitness = fitness[ni, nj]
+                    best_value = resource_grid[ni, nj]
+            
+            new_grid[i, j] = best_value
+    
+    return new_grid
+
+def cellular_algorithm(rows, cols, max_iterations, diffusion_coeff, mutation_prob, max_resources):
+    resource_grid, demand_grid = initialize_grids(rows, cols, max_resources)
+    
+    best_grid = resource_grid.copy()
+    best_fitness_sum = -np.inf
+    
+    for iteration in range(max_iterations):
+        resource_grid = parallel_diffusion(resource_grid, diffusion_coeff)
+        resource_grid = apply_mutation(resource_grid, mutation_prob, max_resources)
+        fitness = compute_fitness(resource_grid, demand_grid)
+        resource_grid = select_best_allocation(resource_grid, demand_grid, fitness)
+        
+        current_fitness_sum = np.sum(fitness)
+        if current_fitness_sum > best_fitness_sum:
+            best_fitness_sum = current_fitness_sum
+            best_grid = resource_grid.copy()
+    
+    return best_grid, demand_grid, best_fitness_sum
+
+def find_best_cell_allocation(resource_grid, demand_grid):
+    fitness = compute_fitness(resource_grid, demand_grid)
+    best_idx = np.unravel_index(np.argmax(fitness), fitness.shape)
+    return best_idx, fitness[best_idx]
+
+if __name__ == "__main__":
+    rows, cols, max_iterations, diffusion_coeff, mutation_prob, max_resources = get_user_input()
+    
+    final_resource_grid, demand_grid, best_fitness = cellular_algorithm(
+        rows, cols, max_iterations, diffusion_coeff, mutation_prob, max_resources
+    )
+    
+    print("\n" + "="*50)
+    print("=== OUTPUT ===")
+    print("="*50)
+    
+    print("\nFinal Resource Allocation Grid:")
+    print(final_resource_grid)
+    
+    print("\nDemand Grid:")
+    print(demand_grid)
+    
+    best_cell, best_cell_fitness = find_best_cell_allocation(final_resource_grid, demand_grid)
+    
+    print(f"\nBest cell allocation: cell({best_cell[0]},{best_cell[1]}) = {final_resource_grid[best_cell]} with demand {demand_grid[best_cell]}")
